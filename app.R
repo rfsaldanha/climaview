@@ -11,7 +11,7 @@ library(ggplot2)
 library(readr)
 
 # Database
-database <- "duck"
+database <- "psql"
 
 if (database == "psql") {
   # Connection
