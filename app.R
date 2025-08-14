@@ -15,13 +15,14 @@ database <- "psql"
 
 if (database == "psql") {
   # Connection
+  source("credentials.R")
   con <- dbConnect(
     RPostgres::Postgres(),
     dbname = "observatorio",
     host = "psql.icict.fiocruz.br",
     port = 5432,
-    user = Sys.getenv("weather_user"),
-    password = Sys.getenv("weather_password")
+    user = user,
+    password = password
   )
 
   # Schemas
