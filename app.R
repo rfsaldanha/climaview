@@ -11,7 +11,7 @@ library(ggplot2)
 library(readr)
 
 # Database
-database <- "psql"
+database <- "duck"
 
 if (database == "psql") {
   # Connection
@@ -52,11 +52,6 @@ if (database == "psql") {
     )
   wl_umid <- tbl(con, schema_sensor_772005) |>
     select(time = ts, value = hum)
-  wl_press <- tbl(con, schema_sensor_772003) |>
-    select(time = ts, value = bar_sea_level) |>
-    mutate(
-      value = value * 33.864
-    )
   wl_rain <- tbl(con, schema_sensor_772005) |>
     select(time = ts, value = rain_rate_last_mm)
   wl_wind <- tbl(con, schema_sensor_772005) |>
@@ -68,8 +63,6 @@ if (database == "psql") {
     filter(sensor == 8)
   pf_umid <- tbl(con, schema) |>
     filter(sensor == 11)
-  pf_press <- tbl(con, schema) |>
-    filter(sensor == 23)
   pf_uv <- tbl(con, schema) |>
     filter(sensor == 19)
   pf_river <- tbl(con, schema) |>
@@ -96,11 +89,6 @@ if (database == "psql") {
     )
   wl_umid <- tbl(con, "tb_estacao_2_sensor_772005") |>
     select(time = ts, value = hum)
-  wl_press <- tbl(con, "tb_estacao_2_sensor_772003") |>
-    select(time = ts, value = bar_sea_level) |>
-    mutate(
-      value = value * 33.864
-    )
   wl_rain <- tbl(con, "tb_estacao_2_sensor_772005") |>
     select(time = ts, value = rain_rate_last_mm)
   wl_wind <- tbl(con, "tb_estacao_2_sensor_772005") |>
@@ -113,9 +101,6 @@ if (database == "psql") {
     select(-device, -sensor)
   pf_umid <- tbl(con, "tb_estacao_1b") |>
     filter(sensor == 11) |>
-    select(-device, -sensor)
-  pf_press <- tbl(con, "tb_estacao_1b") |>
-    filter(sensor == 23) |>
     select(-device, -sensor)
   pf_uv <- tbl(con, "tb_estacao_1b") |>
     filter(sensor == 19) |>
@@ -245,6 +230,43 @@ ui <- page_navbar(
         )
       )
     )
+  ),
+
+  nav_panel(
+    title = "Cametá",
+    page(
+      card(
+        plotOutput(outputId = "cameta_temp")
+      ),
+      card(
+        plotOutput(outputId = "cameta_umid")
+      ),
+      card(
+        plotOutput(outputId = "cameta_wind")
+      ),
+      card(
+        plotOutput(outputId = "cameta_rain")
+      ),
+      card(
+        card_title("Download dos dados"),
+        downloadButton(
+          outputId = "cameta_download_temp",
+          label = "Temperatura"
+        ),
+        downloadButton(
+          outputId = "cameta_download_umid",
+          label = "Umidade"
+        ),
+        downloadButton(
+          outputId = "cameta_download_wind",
+          label = "Vento e rajada"
+        ),
+        downloadButton(
+          outputId = "cameta_download_rain",
+          label = "Chuva"
+        )
+      )
+    )
   )
 )
 
@@ -267,7 +289,7 @@ server <- function(input, output, session) {
     dateInput(
       inputId = "date_end",
       label = "Data de fim",
-      value = today(),
+      value = as_date(input$date_start) + 7,
       language = "pt-BR"
     )
   })
@@ -469,7 +491,7 @@ server <- function(input, output, session) {
         subtitle = "Mocajuba, PA",
         caption = "LIS/ICICT/Fiocruz",
         x = "Data e hora",
-        y = "m/s"
+        y = "mm"
       ) +
       theme_bw()
   })
@@ -522,6 +544,158 @@ server <- function(input, output, session) {
     content = function(file) {
       # Write the dataset to the `file` that will be downloaded
       write_csv2(x = pf_river_data() |> collect(), file = file)
+    }
+  )
+
+  # Cameta temp data
+  wl_temp_data <- reactive({
+    req(input$date_start)
+    req(input$date_end)
+
+    start_date <- as_date(input$date_start, tz = "UTC")
+    end_date <- as_date(input$date_end, tz = "UTC")
+
+    wl_temp |>
+      filter(time >= start_date & time <= end_date)
+  })
+
+  # Cameta temp plot
+  output$cameta_temp <- renderPlot({
+    ggplot(wl_temp_data(), aes(x = time, y = value)) +
+      geom_line() +
+      labs(
+        title = "Temperatura",
+        subtitle = "Cametá, PA",
+        caption = "LIS/ICICT/Fiocruz",
+        x = "Data e hora",
+        y = "Graus celsius"
+      ) +
+      theme_bw()
+  })
+
+  # Cametá temp download
+  output$cameta_download_temp <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("cameta_temp", ".csv")
+    },
+    content = function(file) {
+      # Write the dataset to the `file` that will be downloaded
+      write_csv2(x = wl_temp_data() |> collect(), file = file)
+    }
+  )
+
+  # Cameta umid data
+  wl_umid_data <- reactive({
+    req(input$date_start)
+    req(input$date_end)
+
+    start_date <- as_date(input$date_start, tz = "UTC")
+    end_date <- as_date(input$date_end, tz = "UTC")
+
+    wl_umid |>
+      filter(time >= start_date & time <= end_date)
+  })
+
+  # Cameta umid plot
+  output$cameta_umid <- renderPlot({
+    ggplot(wl_temp_data(), aes(x = time, y = value)) +
+      geom_line() +
+      labs(
+        title = "Umidade relativa do ar",
+        subtitle = "Cametá, PA",
+        caption = "LIS/ICICT/Fiocruz",
+        x = "Data e hora",
+        y = "%"
+      ) +
+      theme_bw()
+  })
+
+  # Cametá umid download
+  output$cameta_download_umid <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("cameta_umid", ".csv")
+    },
+    content = function(file) {
+      # Write the dataset to the `file` that will be downloaded
+      write_csv2(x = wl_umid_data() |> collect(), file = file)
+    }
+  )
+
+  # Cameta wind data
+  wl_wind_data <- reactive({
+    req(input$date_start)
+    req(input$date_end)
+
+    start_date <- as_date(input$date_start, tz = "UTC")
+    end_date <- as_date(input$date_end, tz = "UTC")
+
+    wl_wind |>
+      filter(time >= start_date & time <= end_date)
+  })
+
+  # Cameta wind plot
+  output$cameta_wind <- renderPlot({
+    ggplot(wl_wind_data(), aes(x = time, y = value)) +
+      geom_line() +
+      labs(
+        title = "Vento",
+        subtitle = "Cametá, PA",
+        caption = "LIS/ICICT/Fiocruz",
+        x = "Data e hora",
+        y = "m/s"
+      ) +
+      theme_bw()
+  })
+
+  # Cametá wind download
+  output$cameta_download_wind <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("cameta_vento", ".csv")
+    },
+    content = function(file) {
+      # Write the dataset to the `file` that will be downloaded
+      write_csv2(x = wl_wind_data() |> collect(), file = file)
+    }
+  )
+
+  # Cameta rain data
+  wl_rain_data <- reactive({
+    req(input$date_start)
+    req(input$date_end)
+
+    start_date <- as_date(input$date_start, tz = "UTC")
+    end_date <- as_date(input$date_end, tz = "UTC")
+
+    wl_rain |>
+      filter(time >= start_date & time <= end_date)
+  })
+
+  # Cameta rain plot
+  output$cameta_rain <- renderPlot({
+    ggplot(wl_rain_data(), aes(x = time, y = value)) +
+      geom_line() +
+      labs(
+        title = "Chuva",
+        subtitle = "Cametá, PA",
+        caption = "LIS/ICICT/Fiocruz",
+        x = "Data e hora",
+        y = "mm"
+      ) +
+      theme_bw()
+  })
+
+  # Cametá rain download
+  output$cameta_download_rain <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("cameta_chuva", ".csv")
+    },
+    content = function(file) {
+      # Write the dataset to the `file` that will be downloaded
+      write_csv2(x = wl_rain_data() |> collect(), file = file)
     }
   )
 }
